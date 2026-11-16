@@ -1,4 +1,4 @@
-# Public API of the wechat-protocol crate (default features, aarch64-apple-darwin). Generated from rustdoc JSON; do not edit.
+# Public API of the wechat-protocol crate (default features, x86_64-unknown-linux-gnu). Generated from rustdoc JSON; do not edit.
 # Run `pnpm interfaces` after changing the crate. Format: ITEM | SIGNATURE | DOC SUMMARY
 const wechat_protocol::MAX_MESSAGE_BYTES | usize | MISSING DOC
 const wechat_protocol::ServiceRejected::SESSION_REJECTED | i32 | Code the session boundaries return when they no longer accept the account's credentials.

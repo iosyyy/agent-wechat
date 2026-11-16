@@ -1,4 +1,4 @@
-# Public API of the wechat-media crate (default features, aarch64-apple-darwin). Generated from rustdoc JSON; do not edit.
+# Public API of the wechat-media crate (default features, x86_64-unknown-linux-gnu). Generated from rustdoc JSON; do not edit.
 # Run `pnpm interfaces` after changing the crate. Format: ITEM | SIGNATURE | DOC SUMMARY
 const wechat_media::DEFAULT_VIDEO_STICKER_EDGE | u32 | Longest edge of stickers made from video when the caller sets none.
 const wechat_media::DEFAULT_VIDEO_STICKER_FPS | u32 | Frame rate of stickers made from video when the caller sets none.
