@@ -35,6 +35,8 @@ jobs:
           workspaces: packages/native-client-rust -> target
           add-rust-environment-hash-key: false
           key: langbot-native-1.93.1-opt1-debug0
+          cache-on-failure: true
+          cache-workspace-crates: true
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -51,9 +53,15 @@ jobs:
         run: |
           pnpm interfaces
           pnpm i18n check
+      - name: Retain generated Linux interface listings
+        uses: actions/upload-artifact@v7
+        with:
+          name: langbot-native-linux-interfaces
+          path: interfaces/
+          retention-days: 14
       - name: Test native workspace
         working-directory: packages/native-client-rust
-        run: cargo test --workspace --locked
+        run: bash scripts/test-profile-isolated.sh --workspace --locked
       - name: Build validated Linux executable
         working-directory: packages/native-client-rust
         run: cargo build --profile test --locked -p wx-native --bin wx

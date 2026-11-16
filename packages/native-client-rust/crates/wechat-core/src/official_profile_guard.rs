@@ -86,9 +86,14 @@ fn reject_open_profile_at(home: &Path, proc_root: &Path, self_pid: u32) -> Resul
         if index >= 4096 {
             bail!("official_profile_inventory_limit");
         }
-        let db = item?.path().join("db_storage");
-        if db.try_exists()? {
-            inventory(&db, 0, &mut visited, &mut ids, &mut owners)?;
+        let account = item?.path();
+        for name in ["db_storage", "config"] {
+            let path = account.join(name);
+            match std::fs::symlink_metadata(&path) {
+                Ok(_) => inventory(&path, 0, &mut visited, &mut ids, &mut owners)?,
+                Err(error) if error.kind() == ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
         }
     }
     let login = home.join(".xwechat/login");
@@ -246,6 +251,55 @@ mod tests {
                 .to_string(),
             "invalid official profile path"
         );
+    }
+
+    #[test]
+    fn official_profile_guard_rejects_config_only_writer() {
+        use std::os::unix::fs::symlink;
+        let (_temp, home, proc_root) = fixture();
+        let config = home.join("xwechat_files/synthetic/config");
+        std::fs::create_dir(&config).unwrap();
+        let fds = proc_root.join("123/fd");
+        std::fs::create_dir_all(&fds).unwrap();
+        for name in [
+            "login_configv2",
+            "login_configv2.crc",
+            "rs_config",
+            "rs_config.crc",
+        ] {
+            let path = config.join(name);
+            std::fs::write(&path, b"synthetic account configuration").unwrap();
+            symlink(&path, fds.join("7")).unwrap();
+            assert_eq!(
+                reject_open_profile_at(&home, &proc_root, 456)
+                    .unwrap_err()
+                    .to_string(),
+                "official_profile_in_use"
+            );
+            std::fs::remove_file(fds.join("7")).unwrap();
+            std::fs::remove_file(path).unwrap();
+        }
+    }
+
+    #[test]
+    fn official_profile_guard_rejects_account_config_symlinks() {
+        use std::os::unix::fs::symlink;
+        let (temp, home, proc_root) = fixture();
+        let config = home.join("xwechat_files/synthetic/config");
+        let external = temp.path().join("external");
+        std::fs::create_dir(&external).unwrap();
+        symlink(&external, &config).unwrap();
+        for target_exists in [true, false] {
+            if !target_exists {
+                std::fs::remove_dir(&external).unwrap();
+            }
+            assert_eq!(
+                reject_open_profile_at(&home, &proc_root, 456)
+                    .unwrap_err()
+                    .to_string(),
+                "invalid official profile path"
+            );
+        }
     }
 
     #[test]

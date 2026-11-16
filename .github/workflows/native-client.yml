@@ -124,7 +124,7 @@ jobs:
           if [ '${{ github.event_name == 'pull_request' || inputs.simulator_checks }}' != true ]; then
             packages+=(--exclude wechat-simulator)
           fi
-          cargo test --workspace "${packages[@]}" --locked
+          bash scripts/test-profile-isolated.sh --workspace "${packages[@]}" --locked
       # Workspace default-feature tests above already cover the native codec and
       # audio libraries. Keep the virtual-device and portable-target checks here
       # instead of scheduling another Linux runner for the same unit tests.

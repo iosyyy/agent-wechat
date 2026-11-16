@@ -557,12 +557,48 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[tokio::test]
     async fn official_profile_guard_rechecks_restarted_daemon_and_write_admission() {
+        check_official_profile_guard_entry_points(None).await;
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn official_profile_guard_rejects_config_only_writer_at_every_entry() {
+        for name in ["login_configv2", "rs_config"] {
+            check_official_profile_guard_entry_points(Some(name)).await;
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    async fn check_official_profile_guard_entry_points(config_name: Option<&str>) {
         let temp = tempfile::tempdir().unwrap();
         let official = temp.path().join("home");
-        home(&official, "synthetic_self");
+        let account_root = home(&official, "synthetic_self");
+        let guarded_path = if let Some(name) = config_name {
+            let config = account_root.join("config");
+            std::fs::create_dir(&config).unwrap();
+            let path = config.join(name);
+            std::fs::write(&path, b"synthetic account configuration").unwrap();
+            path
+        } else {
+            official.join(GLOBAL)
+        };
         let store = Arc::new(Store::open(&temp.path().join("data")).unwrap());
         let core = Core::new(store.clone(), None).unwrap();
         core.configure_profile_format_key(&[9; 16]).unwrap();
+        let other = OpenProfileProcess::start(&guarded_path);
+        assert_eq!(
+            core.prepare_official_profile(OfficialProfileRequest {
+                path: Some(official.to_str().unwrap().into()),
+                account_id: None,
+            })
+            .await
+            .err()
+            .unwrap()
+            .to_string(),
+            "official_profile_in_use"
+        );
+        assert!(store.accounts().unwrap().is_empty());
+        drop(other);
         let selected = core
             .prepare_official_profile(OfficialProfileRequest {
                 path: Some(official.to_str().unwrap().into()),
@@ -591,7 +627,18 @@ mod tests {
         core.write_options(&selected.account_id, "synthetic-admission")
             .unwrap();
         let before = wechat_store::copy::inventory(&official).unwrap();
-        let other = OpenProfileProcess::start(&official.join(GLOBAL));
+        let other = OpenProfileProcess::start(&guarded_path);
+        assert_eq!(
+            core.prepare_official_profile(OfficialProfileRequest {
+                path: Some(official.to_str().unwrap().into()),
+                account_id: Some(selected.account_id.clone()),
+            })
+            .await
+            .err()
+            .unwrap()
+            .to_string(),
+            "official_profile_in_use"
+        );
         assert_eq!(
             core.write_options(&selected.account_id, "synthetic-admission")
                 .unwrap_err()
