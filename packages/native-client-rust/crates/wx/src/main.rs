@@ -316,7 +316,7 @@ enum AccountCommand {
     Status,
     /// Read or update this account's hub-side automatic download policy.
     Settings {
-        /// Maximum automatic download size in MiB (0 keeps thumbnails and voice automatic).
+        /// Maximum automatic download size in MiB (0 disables all automatic downloads).
         #[arg(long, value_parser = clap::value_parser!(u64).range(0..=512))]
         auto_download_max_mb: Option<u64>,
     },

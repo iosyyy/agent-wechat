@@ -1,5 +1,5 @@
-//! Bounded native CDN transport. This uses the observed HTTP carrier on port 443,
-//! not HTTPS. Media encryption and advertised size/digests are checked separately.
+//! Native CDN codecs and integrity checks. Authenticated CDN network transfers
+//! are refused until a verified secure transport is implemented.
 use crate::errors::{Service, ServiceRejected};
 use crate::{
     crypto::{md5, random, sha256},
@@ -480,7 +480,6 @@ pub struct UploadedMedia {
 }
 pub struct CdnClient {
     config: CdnConfig,
-    timeout: Duration,
 }
 fn large_file_path(path: &str, uin: u64, sequence: u32) -> bool {
     let parts: Vec<_> = path.split('/').collect();
@@ -500,9 +499,17 @@ impl CdnClient {
             !timeout.is_zero() && timeout <= Duration::from_secs(120),
             "Invalid CDN timeout"
         );
-        Ok(Self { config, timeout })
+        Ok(Self { config })
     }
     fn post(&self, path: &str, fields: &CdnFields) -> Result<CdnFields> {
+        self.post_at(path, fields, (self.config.server_ips[0], 443).into())
+    }
+    fn post_at(
+        &self,
+        path: &str,
+        fields: &CdnFields,
+        _endpoint: std::net::SocketAddr,
+    ) -> Result<CdnFields> {
         let sequence = u32::try_from(integer(fields, "seq")?)?;
         ensure!(sequence != 0, "Invalid CDN sequence");
         ensure!(
@@ -510,32 +517,9 @@ impl CdnClient {
                 || large_file_path(path, self.config.uin, sequence),
             "Invalid CDN path"
         );
-        let body = pack_cdn(fields)?;
-        let client = reqwest::blocking::Client::builder()
-            .timeout(self.timeout)
-            .redirect(reqwest::redirect::Policy::none())
-            .no_proxy()
-            .build()?;
-        let mut response = client
-            .post(format!("http://{}:443{path}", self.config.server_ips[0]))
-            .header("Accept", "*/*")
-            .header("Content-Type", "application/octet-stream")
-            .header("User-Agent", "MicroMessenger Client")
-            .header("Connection", "close")
-            .header("C-Seq", sequence)
-            .body(body)
-            .send()?;
-        ensure!(
-            response.status() == 200,
-            "CDN HTTP status {}",
-            response.status().as_u16()
-        );
-        let mut raw = vec![];
-        response
-            .by_ref()
-            .take((MAX_CDN_BODY + 1) as u64)
-            .read_to_end(&mut raw)?;
-        unpack_cdn(&raw)
+        // The available carrier is HTTP, even on port 443. Refuse before
+        // serializing credentials or opening a connection.
+        bail!("cdn_secure_transport_unavailable")
     }
     pub fn download(&self, descriptor: &MediaDescriptor) -> Result<DownloadedMedia> {
         self.download_with_progress(descriptor, |_, _| Ok(()))
@@ -1824,6 +1808,32 @@ impl CdnClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn authenticated_cdn_refuses_cleartext_before_opening_a_socket() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let client = CdnClient::new(client().config.clone(), Duration::from_millis(100)).unwrap();
+        let fields = shared(&client.config, 1, 7);
+        for path in [
+            "/download",
+            "/downloadbig",
+            "/downloadstorage",
+            "/uploadv3",
+            "/cdn/12345/1/7/apply",
+            "/cdn/12345/1/7/uploadblock",
+            "/cdn/12345/1/7/fin",
+            "/cdn/12345/1/7/complete",
+        ] {
+            let error = client
+                .post_at(path, &fields, listener.local_addr().unwrap())
+                .unwrap_err();
+            assert!(
+                matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock),
+                "authenticated CDN must fail before opening a socket"
+            );
+            assert_eq!(error.to_string(), "cdn_secure_transport_unavailable");
+        }
+    }
     fn client() -> CdnClient {
         CdnClient::new(
             CdnConfig {

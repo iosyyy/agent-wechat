@@ -91,65 +91,25 @@ fn selected_home(path: &Path, explicit: bool) -> Result<(PathBuf, Option<PathBuf
     Ok((home, selected))
 }
 
-// This supplements the ownership lease. The official app does not honor our lock;
-// --official is the operator's exclusive-handoff instruction, not an OS lock on it.
+#[cfg(any(target_os = "linux", all(test, unix)))]
+#[path = "official_profile_guard.rs"]
+mod guard;
+
 #[cfg(target_os = "linux")]
-fn reject_open_profile(home: &Path) -> Result<()> {
-    use std::{collections::BTreeSet, os::unix::fs::MetadataExt};
-    fn files(path: &Path, depth: usize, ids: &mut BTreeSet<(u64, u64)>) -> Result<()> {
-        if depth > 6 || ids.len() > 8192 {
-            bail!("official_profile_inventory_limit");
-        }
-        let meta = std::fs::symlink_metadata(path)?;
-        if wechat_platform::is_link(&meta) {
-            bail!("invalid official profile path");
-        }
-        if meta.is_dir() {
-            for entry in std::fs::read_dir(path)? {
-                files(&entry?.path(), depth + 1, ids)?;
-            }
-        } else if meta.is_file() {
-            ids.insert((meta.dev(), meta.ino()));
-        }
-        Ok(())
-    }
-    let mut ids = BTreeSet::new();
-    for path in [home.join(GLOBAL), home.join(format!("{GLOBAL}.crc"))] {
-        files(&path, 0, &mut ids)?;
-    }
-    for item in std::fs::read_dir(home.join("xwechat_files"))? {
-        let db = item?.path().join("db_storage");
-        if db.is_dir() {
-            files(&db, 0, &mut ids)?;
-        }
-    }
-    // Matching inodes also catches a container bind mount with another path spelling.
-    for process in std::fs::read_dir("/proc")? {
-        let process = process?;
-        let name = process.file_name();
-        let Some(pid) = name.to_str().and_then(|s| s.parse::<u32>().ok()) else {
-            continue;
-        };
-        if pid == std::process::id() {
-            continue;
-        }
-        let Ok(fds) = std::fs::read_dir(process.path().join("fd")) else {
-            continue;
-        };
-        for fd in fds.flatten() {
-            if let Ok(meta) = fd.path().metadata() {
-                if ids.contains(&(meta.dev(), meta.ino())) {
-                    bail!("official_profile_in_use");
-                }
-            }
-        }
-    }
-    Ok(())
-}
+use guard::reject_open_profile;
 
 #[cfg(not(target_os = "linux"))]
 fn reject_open_profile(_home: &Path) -> Result<()> {
     bail!("official_profile_host_unsupported: official-app takeover is currently validated on Linux only; use an explicitly provisioned supported-format profile");
+}
+
+// A process snapshot supplements our cooperative lease; it cannot stop a future
+// official-app launch. The host must keep that app and its restart service stopped.
+pub(super) fn require_stopped_profile(account: &wechat_store::Account) -> Result<()> {
+    if account.storage_mode == "official" {
+        reject_open_profile(&account.profile_path)?;
+    }
+    Ok(())
 }
 
 impl Core {
@@ -562,6 +522,95 @@ mod tests {
         assert!(selected_home(Path::new("relative"), true).is_err());
         assert!(selected_home(&temp.path().join("missing"), true).is_err());
     }
+    #[cfg(target_os = "linux")]
+    struct OpenProfileProcess(std::process::Child);
+
+    #[cfg(target_os = "linux")]
+    impl OpenProfileProcess {
+        fn start(path: &Path) -> Self {
+            use std::io::BufRead;
+            let mut child = std::process::Command::new("sh")
+                .args(["-c", "exec 9<\"$1\"; printf 'ready\\n'; read done", "guard"])
+                .arg(path)
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .unwrap();
+            let mut ready = String::new();
+            std::io::BufReader::new(child.stdout.take().unwrap())
+                .read_line(&mut ready)
+                .unwrap();
+            assert_eq!(ready, "ready\n");
+            Self(child)
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    impl Drop for OpenProfileProcess {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn official_profile_guard_rechecks_restarted_daemon_and_write_admission() {
+        let temp = tempfile::tempdir().unwrap();
+        let official = temp.path().join("home");
+        home(&official, "synthetic_self");
+        let store = Arc::new(Store::open(&temp.path().join("data")).unwrap());
+        let core = Core::new(store.clone(), None).unwrap();
+        core.configure_profile_format_key(&[9; 16]).unwrap();
+        let selected = core
+            .prepare_official_profile(OfficialProfileRequest {
+                path: Some(official.to_str().unwrap().into()),
+                account_id: None,
+            })
+            .await
+            .unwrap();
+        let binding = core
+            .identity_binding(&selected.account_id)
+            .unwrap()
+            .unwrap();
+        store
+            .put_runtime(
+                &selected.account_id,
+                "profile-write-binding",
+                &core
+                    .vault
+                    .seal(
+                        &selected.account_id,
+                        "profile-write-binding",
+                        &serde_json::to_vec(&binding).unwrap(),
+                    )
+                    .unwrap(),
+            )
+            .unwrap();
+        core.write_options(&selected.account_id, "synthetic-admission")
+            .unwrap();
+        let before = wechat_store::copy::inventory(&official).unwrap();
+        let other = OpenProfileProcess::start(&official.join(GLOBAL));
+        assert_eq!(
+            core.write_options(&selected.account_id, "synthetic-admission")
+                .unwrap_err()
+                .to_string(),
+            "official_profile_in_use"
+        );
+        drop(core);
+        assert_eq!(
+            Core::new(store.clone(), None).err().unwrap().to_string(),
+            "official_profile_in_use"
+        );
+        assert_eq!(before, wechat_store::copy::inventory(&official).unwrap());
+        drop(other);
+        let restarted = Core::new(store, None).unwrap();
+        restarted
+            .write_options(&selected.account_id, "synthetic-admission")
+            .unwrap();
+    }
+
     #[tokio::test]
     async fn accepted_identity_derives_existing_database_keys_without_replacing_files() {
         let temp = tempfile::tempdir().unwrap();

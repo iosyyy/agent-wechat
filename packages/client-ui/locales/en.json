@@ -525,7 +525,7 @@
     "you": "You"
   },
   "mediaDownloadSettings": {
-    "agentWechatHubThumbnailsVoice": "On agent-wechat hub. Thumbnails and voice notes always download.",
+    "agentWechatHubThumbnailsVoice": "On agent-wechat hub. A zero limit disables all automatic downloads, including thumbnails and voice notes.",
     "automaticDownloads": "Automatic downloads",
     "save": "Save",
     "saved": "Saved.",

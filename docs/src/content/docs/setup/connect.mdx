@@ -101,7 +101,7 @@ Removal unregisters the profile and keeps its local files. `wx auth forget --yes
 
 <Aside title="Good to know">
 - **A new profile starts without your old chats.** WeChat doesn't send full history to a new login, so it fills up from new messages onward.
-- **With `--official`, keep WeChat closed** while the daemon is running. Both writing to the same files can damage them.
+- **With `--official`, stop WeChat and disable its automatic restart** before attaching the profile, and keep it stopped while the daemon runs. Keep a consistent backup. The daemon checks visible processes at startup and before profile writes, but cannot prevent another app from starting later or inspect a different PID namespace. If you use a container, give only the daemon access to a complete offline profile copy, or enforce the same rule on the host. Two writers can damage the files.
 - **The account has to match.** With `--official`, log in as the account those files belong to; the daemon won't write another account's messages into them.
 - **Next time you start the daemon, it reconnects on its own.** You only log in again if WeChat ends the session.
 - **No terminal?** `wx` saves the QR code as a PNG and prints the path.

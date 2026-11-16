@@ -40,7 +40,7 @@ wx accounts remove <ID> | position 1, required | Account ID from wx accounts lis
 wx accounts select | - | Save the default account for the selected named server
 wx accounts select <ID> | position 1, required | Account ID or alias from wx accounts list
 wx accounts settings | - | Read or update this account's hub-side automatic download policy
-wx accounts settings --auto-download-max-mb | takes <AUTO_DOWNLOAD_MAX_MB> | Maximum automatic download size in MiB (0 keeps thumbnails and voice automatic)
+wx accounts settings --auto-download-max-mb | takes <AUTO_DOWNLOAD_MAX_MB> | Maximum automatic download size in MiB (0 disables all automatic downloads)
 wx accounts status | - | Show authentication and connection state for the selected account
 wx auth | - | Sign the selected account in or out of WeChat
 wx auth attempts | - | Inspect or cancel a WeChat login attempt

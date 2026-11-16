@@ -1,0 +1,79 @@
+name: LangBot native backend validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/langbot-protocol-backend]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: langbot-native-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_PROFILE_DEV_OPT_LEVEL: 1
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.93.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/native-client-rust -> target
+          add-rust-environment-hash-key: false
+          key: langbot-native-1.93.1-opt1-debug0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+      - name: Install native build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake ffmpeg libpulse0
+      - name: Check formatting
+        working-directory: packages/native-client-rust
+        run: cargo fmt --all --check
+      - name: Check Rust warnings
+        working-directory: packages/native-client-rust
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Check changed interfaces and translations
+        run: |
+          pnpm interfaces
+          pnpm i18n check
+      - name: Test native workspace
+        working-directory: packages/native-client-rust
+        run: cargo test --workspace --locked
+      - name: Build validated Linux executable
+        working-directory: packages/native-client-rust
+        run: cargo build --profile test --locked -p wx-native --bin wx
+      - name: Smoke test isolated native executable
+        run: node scripts/smoke/platform.mjs "$PWD/packages/native-client-rust/target/debug/wx"
+      - name: Record executable provenance
+        run: |
+          mkdir -p artifact
+          cp packages/native-client-rust/target/debug/wx artifact/wx
+          sha256sum artifact/wx > artifact/SHA256SUMS
+          git rev-parse HEAD > artifact/source-commit.txt
+          rustc --version > artifact/rustc-version.txt
+          cp LICENSE artifact/LICENSE
+          cp packages/cli/THIRD_PARTY_NOTICES.txt artifact/THIRD-PARTY-NOTICES.txt
+          cp -R interfaces artifact/interfaces
+      - uses: actions/upload-artifact@v7
+        with:
+          name: langbot-native-linux-x64
+          path: artifact/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Require committed interface listings to match Linux
+        run: git diff --exit-code -- interfaces/

@@ -5,8 +5,8 @@ use super::*;
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AccountSettings {
     /// Largest advertised size in bytes that the daemon downloads automatically for this account,
-    /// from 0 to 536870912. Thumbnails and voice notes are always downloaded, and 0 limits
-    /// automatic downloads to those; the default is 52428800.
+    /// from 0 to 536870912. Zero disables all automatic media downloads. With a positive limit,
+    /// thumbnails and voice notes bypass the size limit; the default is 52428800.
     #[ts(type = "number")]
     pub auto_download_max_bytes: u64,
 }

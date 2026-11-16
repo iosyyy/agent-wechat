@@ -45,11 +45,13 @@ settings still apply. Message bursts request at most one sound every three secon
 
 The agent-wechat hub downloads new attachments without a browser or API client
 being open. Each account has its own size limit, initially **50 MB (52,428,800 bytes)**.
+Set the limit to **0** to disable all automatic media downloads, including link
+previews and voice notes. With a positive limit, the following rules apply:
 
 | Content | Automatic download |
 | --- | --- |
-| Image and video thumbnails | Always, when a source is provided |
-| Voice notes | Always, in playback format |
+| Image and video thumbnails | When a source is provided; not subject to the size limit |
+| Voice notes | In playback format; not subject to the size limit |
 | Standard and original images | Each version whose advertised size is within the limit |
 | Standard and original videos | Each version whose advertised size is within the limit |
 | Files and stickers | When their advertised size is within the limit |
@@ -77,7 +79,7 @@ being open. Each account has its own size limit, initially **50 MB (52,428,800 b
    { "autoDownloadMaxBytes": 52428800 }
    ```
 
-   Set `0` to keep only thumbnails and voice notes automatic. The maximum is
+   Set `0` to disable automatic media downloads. The maximum is
    `512`, matching the supported file download ceiling. Changes apply to new
    attachments and automatic work that has not yet been admitted; running
    transfers and already downloaded files stay intact.
@@ -111,6 +113,8 @@ verified downloaded bytes. A missing advertised size does not mean an empty file
 
 <Aside title="Good to know">
 - Automatic download settings are stored in the hub's account registry, outside the official WeChat profile.
+- Some native media transfers are currently unavailable because their authenticated
+  CDN carrier has no implemented secure transport. See [attachment availability](/use/media/).
 - The language is saved in this browser or desktop app, not on the hub. Message
   text, contact names and CLI output are never translated. On macOS, the Reply and
   Mark as Read notification buttons change language after the app restarts.

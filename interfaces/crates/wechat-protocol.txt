@@ -1,4 +1,4 @@
-# Public API of the wechat-protocol crate (default features, x86_64-unknown-linux-gnu). Generated from rustdoc JSON; do not edit.
+# Public API of the wechat-protocol crate (default features, aarch64-apple-darwin). Generated from rustdoc JSON; do not edit.
 # Run `pnpm interfaces` after changing the crate. Format: ITEM | SIGNATURE | DOC SUMMARY
 const wechat_protocol::MAX_MESSAGE_BYTES | usize | MISSING DOC
 const wechat_protocol::ServiceRejected::SESSION_REJECTED | i32 | Code the session boundaries return when they no longer accept the account's credentials.
@@ -1756,7 +1756,7 @@ mod wechat_protocol::contact_sync | - | Linux 4.1.13.26 contact stream (CGI8674)
 mod wechat_protocol::crypto | - | MISSING DOC
 mod wechat_protocol::custom_stickers | - | Custom collection reads and mutations, separate from sticker chat sends.
 mod wechat_protocol::file_upload | - | File-upload message reservation. This authenticated request can affect the account's message state; callers must persist its receipt and never retry an uncertain response automatically.
-mod wechat_protocol::media | - | Bounded native CDN transport. This uses the observed HTTP carrier on port 443, not HTTPS. Media encryption and advertised size/digests are checked separately.
+mod wechat_protocol::media | - | Native CDN codecs and integrity checks. Authenticated CDN network transfers are refused until a verified secure transport is implemented.
 mod wechat_protocol::media_send | - | Final media-message metadata. CDN upload and message submission are separate steps; persist source bytes, generated keys and intent before either step.
 mod wechat_protocol::mmtls | - | Fresh pinned MMTLS handshake and authenticated shortlink exchange.
 mod wechat_protocol::openim | - | Read one exact OpenIM contact through the supported native contact operation.

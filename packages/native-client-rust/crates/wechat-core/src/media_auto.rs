@@ -14,6 +14,9 @@ pub(super) fn advertised_length(plan: &DownloadPlan) -> Option<u64> {
     }
 }
 pub(super) fn allowed(asset: &MediaAsset, limit: u64) -> bool {
+    if limit == 0 {
+        return false;
+    }
     if matches!(
         asset.kind,
         MediaKind::Image | MediaKind::Video | MediaKind::Sticker
@@ -34,10 +37,9 @@ pub(super) fn allowed(asset: &MediaAsset, limit: u64) -> bool {
             MediaVariant::Normal | MediaVariant::Original
         ) | (MediaKind::File, MediaVariant::Original)
             | (MediaKind::Sticker, MediaVariant::Original)
-    ) && limit > 0
-        && asset
-            .advertised_byte_length
-            .is_some_and(|size| size > 0 && size <= limit)
+    ) && asset
+        .advertised_byte_length
+        .is_some_and(|size| size > 0 && size <= limit)
 }
 
 #[derive(Serialize, Deserialize)]

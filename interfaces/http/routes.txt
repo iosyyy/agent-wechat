@@ -3,7 +3,7 @@
 # `route` rows give the token scope, payloads and an SDK type where the TypeScript SDK declares one. A payload is `untyped` when the handler builds JSON by hand.
 # `request` and `response` rows list the fields of each typed payload. A type that the SDK declares but the handler does not return is listed too. Query strings are request fields.
 request AccountSettings | object, rejects unknown fields | Hub policy; this is never written into an official WeChat profile.
-request AccountSettings.autoDownloadMaxBytes | integer, required, min 0, format uint64 | Largest advertised size in bytes that the daemon downloads automatically for this account, from 0 to 536870912. Thumbnails and voice notes are always downloaded, and 0 limits automatic downloads to those; the default is 52428800.
+request AccountSettings.autoDownloadMaxBytes | integer, required, min 0, format uint64 | Largest advertised size in bytes that the daemon downloads automatically for this account, from 0 to 536870912. Zero disables all automatic media downloads. With a positive limit, thumbnails and voice notes bypass the size limit; the default is 52428800.
 request AddCustomStickerRequest | object, rejects unknown fields | Save a prepared or received sticker; this does not send a chat message.
 request AddCustomStickerRequest.source | object, required | Owned source, validated before the asynchronous operation is admitted.
 request AddCustomStickerRequest.source.assetId | string, required, when kind message | Original sticker asset belonging to that message.
@@ -153,7 +153,7 @@ request UpdateAccountRequest | object, rejects unknown fields | Request to chang
 request UpdateAccountRequest.alias | string, nullable | The new alias.
 request UpdateAccountRequest.autoConnect | boolean, nullable | Whether the account connects automatically when the daemon starts.
 response AccountSettings | object | Hub policy; this is never written into an official WeChat profile.
-response AccountSettings.autoDownloadMaxBytes | integer, required, min 0, format uint64 | Largest advertised size in bytes that the daemon downloads automatically for this account, from 0 to 536870912. Thumbnails and voice notes are always downloaded, and 0 limits automatic downloads to those; the default is 52428800.
+response AccountSettings.autoDownloadMaxBytes | integer, required, min 0, format uint64 | Largest advertised size in bytes that the daemon downloads automatically for this account, from 0 to 536870912. Zero disables all automatic media downloads. With a positive limit, thumbnails and voice notes bypass the size limit; the default is 52428800.
 response CallSnapshot | object | The state of calling for one account, as returned by the HTTP snapshot route. The `hello` event carries the same fields.
 response CallSnapshot.audioFormat | object, required | The PCM format used for call audio.
 response CallSnapshot.audioFormat.channels | integer, required, min 0, max 255, format uint8 | Number of interleaved channels.

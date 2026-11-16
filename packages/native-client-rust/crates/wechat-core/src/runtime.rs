@@ -338,6 +338,9 @@ impl Core {
             path,
             storage_key.is_none() && !store.protected_state_exists()?,
         )?;
+        for account in store.accounts()? {
+            official_profile::require_stopped_profile(&account)?;
+        }
         let leases = store.profile_leases()?;
         let cursor_vault = Vault::open(
             &store.root.join("cursor-key"),
@@ -2037,6 +2040,7 @@ impl Core {
         account: &str,
         intent: &str,
     ) -> Result<wechat_profile::WriteOptions> {
+        official_profile::require_stopped_profile(&self.store.account(account)?)?;
         let encrypted = self
             .store
             .runtime(account, "profile-write-binding")?

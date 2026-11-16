@@ -1,4 +1,4 @@
-# Public API of the wechat-profile crate (default features, x86_64-unknown-linux-gnu). Generated from rustdoc JSON; do not edit.
+# Public API of the wechat-profile crate (default features, aarch64-apple-darwin). Generated from rustdoc JSON; do not edit.
 # Run `pnpm interfaces` after changing the crate. Format: ITEM | SIGNATURE | DOC SUMMARY
 const wechat_profile::MAX_CACHED_FILE_BYTES | usize | MISSING DOC
 const wechat_profile::MAX_CACHED_MEDIA_BYTES | usize | MISSING DOC

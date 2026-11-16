@@ -131,6 +131,13 @@ durable jobs, upload readback and uncertain-send handling. Sticker retrieval is
 restricted to the verified original-byte CDN host, with pinned public DNS,
 redirect refusal, MD5 validation and bounded full image decoding.
 
+Authenticated CDN network transfers currently return
+`cdn_secure_transport_unavailable` before opening a connection. Their HTTP
+carrier exposes the authentication key in transit; no verified secure replacement
+is implemented. The codecs and synthetic transport tests remain available, along
+with separate HTTPS media paths. This restriction affects native CDN uploads and
+downloads, including manual requests.
+
 Sticker APIs also expose Saved list/metadata and mutations, direct original
 uploads, public/account-added pack pages, details, captions, free-pack activation,
 membership and single-intent GIF sends. `StickerId` and `StickerPackId` validate

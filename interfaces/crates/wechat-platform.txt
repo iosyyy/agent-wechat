@@ -1,4 +1,4 @@
-# Public API of the wechat-platform crate (default features, x86_64-unknown-linux-gnu). Generated from rustdoc JSON; do not edit.
+# Public API of the wechat-platform crate (default features, aarch64-apple-darwin). Generated from rustdoc JSON; do not edit.
 # Run `pnpm interfaces` after changing the crate. Format: ITEM | SIGNATURE | DOC SUMMARY
 const wechat_platform::NOFOLLOW | #[cfg(unix)] i32 | MISSING DOC
 fn wechat_platform::OpenOptions::append | fn(&mut self, value: bool) -> &mut Self | MISSING DOC

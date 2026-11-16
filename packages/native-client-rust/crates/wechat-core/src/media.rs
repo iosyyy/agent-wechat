@@ -2516,6 +2516,7 @@ pub(crate) fn classify_error(error: &anyhow::Error) -> String {
     for cause in error.chain() {
         let message = cause.to_string();
         if [
+            "cdn_secure_transport_unavailable",
             "channels_post_unavailable",
             "channels_unsupported_media",
             "channels_route_unsupported",
@@ -6839,6 +6840,22 @@ mod tests {
         let nested = anyhow::anyhow!("connection closed before message completed")
             .context("opaque request wrapper");
         assert_eq!(classify_error(&nested), "transport_unavailable");
+    }
+    #[test]
+    fn secure_cdn_transport_refusal_exposes_only_the_fixed_reason() {
+        assert_eq!(
+            classify_error(
+                &anyhow::anyhow!("cdn_secure_transport_unavailable")
+                    .context("opaque request context")
+            ),
+            "cdn_secure_transport_unavailable"
+        );
+        assert_eq!(
+            classify_error(&anyhow::anyhow!(
+                "cdn_secure_transport_unavailable https://private.invalid"
+            )),
+            "media_processing_failed"
+        );
     }
     #[test]
     fn image_validation_errors_expose_only_exact_fixed_codes() {

@@ -2727,6 +2727,74 @@ mod automatic_voice_tests {
             100,
         )
     }
+    fn thumbnail(server: u64) -> SyncCommand {
+        add(
+            49,
+            "peer",
+            "synthetic_self",
+            b"<msg><appmsg><type>5</type><title>Synthetic card</title><url>https://example.invalid/article</url><thumburl>https://example.invalid/preview.jpg</thumburl></appmsg></msg>",
+            server,
+            100,
+        )
+    }
+    #[test]
+    fn zero_download_limit_never_queues_received_thumbnails_or_voice() {
+        let (_temporary, store, core) = fixture();
+        store
+            .set_account_settings(
+                "one",
+                &wechat_store::AccountSettings {
+                    auto_download_max_bytes: 0,
+                },
+            )
+            .unwrap();
+        for (command, receipt) in [
+            (thumbnail(200), "disabled-thumbnail"),
+            (voice(201), "disabled-voice"),
+        ] {
+            core.apply_received_sync_command("one", &command, receipt, "live")
+                .unwrap();
+        }
+        for prefix in ["received-media:", "received-voice:"] {
+            assert!(store.runtime_prefix("one", prefix, 100).unwrap().is_empty());
+        }
+        assert!(store.queued_media_jobs("one").unwrap().is_empty());
+    }
+    #[tokio::test]
+    async fn zero_download_limit_discards_pending_thumbnails_and_voice_before_admission() {
+        let (_temporary, store, core) = fixture();
+        for (command, receipt) in [
+            (thumbnail(200), "pending-thumbnail"),
+            (voice(201), "pending-voice"),
+        ] {
+            core.apply_received_sync_command("one", &command, receipt, "live")
+                .unwrap();
+        }
+        for prefix in ["received-media:", "received-voice:"] {
+            assert_eq!(store.runtime_prefix("one", prefix, 100).unwrap().len(), 1);
+        }
+        store
+            .set_account_settings(
+                "one",
+                &wechat_store::AccountSettings {
+                    auto_download_max_bytes: 0,
+                },
+            )
+            .unwrap();
+        store.put_runtime("one", "desired", b"connected").unwrap();
+        store
+            .put_runtime(
+                "one",
+                "validated-generation",
+                core.ownership_generation.as_bytes(),
+            )
+            .unwrap();
+        assert_eq!(core.admit_received_media("one").unwrap(), 0);
+        for prefix in ["received-media:", "received-voice:"] {
+            assert!(store.runtime_prefix("one", prefix, 100).unwrap().is_empty());
+        }
+        assert!(store.queued_media_jobs("one").unwrap().is_empty());
+    }
     #[test]
     fn received_media_uses_each_advertised_variant_size_and_keeps_thumbnails_automatic() {
         let (_temporary, store, core) = fixture();
